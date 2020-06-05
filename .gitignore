@@ -1,0 +1,7 @@
+node_modules/
+tencent.md
+config.json
+config2.json
+example/
+package-lock.json
+hsync.js
