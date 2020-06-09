@@ -40,11 +40,15 @@ deno 初体验，实战记录一个`node`项目迁移到`deno`需要做什么
 
 > 本文以`csdnsynchexo`迁移到`deno`实现进行一步步探索说明。
 
-> [csdnsynchexo](https://github.com/flytam/CsdnSyncHexo)是一个爬取 csdn 博客内容生成 hexo 源文件内容的工具，正常版本使用 nodejs 实现，在学习 Go 的过程中使用 Go 练手实现了一次。最近 node 之父 ry 大神的 deno 也发布了 1.0，就拿 node 版本迁移升级到 deno。本文主要记录一个 nodejs 应用迁移到 deno 需要做哪些工作，还涉及到一些非常基础的 deno 概念。如果你熟悉 nodejs，阅读本文的难度几乎为 0
+> [csdnsynchexo](https://github.com/flytam/CsdnSyncHexo)是一个爬取 csdn 博客内容生成 hexo 源文件内容的简单工具，正常版本使用 nodejs 实现，。最近 node 之父 ry 大神的 deno 也发布了 1.0，就想实践一下，从 node 版本迁移升级到 deno。本文主要记录一个 nodejs 应用迁移到 deno 需要做哪些工作，还涉及到一些非常基础的 deno 概念。如果你熟悉 nodejs，阅读本文的难度几乎为 0
+
+迁移后[项目github地址](https://github.com/flytam/deno-csdn-sync-hexo)
 
 ### 安装`deno`
 
-参考[安装文档](https://deno.land/#installation)
+[安装文档](https://deno.land/#installation)
+
+文档中有很多方式，我们按需选择即可。这里我直接选择mac的脚本安装形式。执行一个脚本然后按照提示设置环境变量即可
 
 ```bash
 curl -fsSL https://deno.land/x/install/install.sh | sh
@@ -56,12 +60,16 @@ export PATH="$DENO_INSTALL/bin:$PATH"
 
 ### 安装`deno` vscode 插件
 
-> 因为 deno 中引入文件必须以`.ts`结尾，而在`node`环境下是不需要的，这个插件能解决这个问题
-> `deno`可以引入远程文件路径，这个插件可以根据路径下载下来的文件，自动推断类型（依赖了`DENO_INSTALL`和`PATH`环境变量）
+这个插件的作用如下：
 
-然后安装`deno`的[vscode 插件](https://github.com/justjavac/typescript-deno-plugin)。
+> 区别于node中的ts， deno中引入文件必须以`.ts`结尾（有详细后缀），而在`node`环境下是不需要的，这个插件能解决这个问题，会提示你需要加后缀
 
-不知为何，安装好这个插件后，`vscode`还是会出现找不到`Deno`的报错（如果无问题，则忽略后面），应该是缺少对应 Deno 的声明文件。这里直接用`npm i typescript-deno-plugin`把`deno`的声明文件安装下来（或者手动将声明文件拷贝一份）。
+> `deno`可以引入远程文件路径，这个插件可以根据路径下载下来的文件，自动推断对应包的类型（依赖了`DENO_INSTALL`和`PATH`环境变量）
+
+vscode商店直接搜索安装即可。[地址](typescript-deno-plugin)
+
+
+我这里遇到了一个问题：安装好这个插件后，`vscode`还是会出现找不到`Deno`的报错（[issue](https://github.com/denoland/vscode_deno/issues/66)不少人也遇到了这个问题，如果无问题，则忽略后面），应该是缺少对应 Deno 的声明文件。这里直接用`npm i typescript-deno-plugin`把`deno`的声明文件安装下来（或者手动将声明文件拷贝一份）。
 
 ```bash
 # 还是用了node和npm...
@@ -70,7 +78,7 @@ npm install --save-dev typescript-deno-plugin typescript
 
 ### 第三方依赖模块的迁移
 
-既然`deno`和`node`都是执行的 ts(js)，只要解决了第三方包和 api 问题，逻辑都一样直接用的，那么本项目的第三方依赖如下，只要解决了这些依赖的问题就可以了
+既然`deno`和`node`都是执行的 ts/js代码，那么其实只要解决了第三方包和 api 问题，逻辑都一样直接用的，那么本项目的第三方依赖如下，只要解决了这些依赖的问题就可以了
 
 ```json
 {
@@ -84,11 +92,11 @@ npm install --save-dev typescript-deno-plugin typescript
 }
 ```
 
-（`deno`实现了`w3c api`标准，已经了内置了`fetch`，不再需要用`node-fetch`了）
+（`deno`实现了`w3c api`标准，已经了内置了`fetch`，所以我们的`node-fetch`不再需要了）
 
 > 模块迁移指南[参考](https://denotutorials.net/migrating-your-npm-packages-to-deno.html)
 
-按照官方推荐，建议用一个`deps.ts`文件来管理所有依赖，别的地方直接从`deps.ts`统一引入即可，例如本项目的`deps.ts`如下
+按照官方推荐，Deno项目中建议用一个`deps.ts`文件来统一管理所有依赖，别的地方直接从`deps.ts`统一引入，例如本项目的`deps.ts`如下
 
 ```ts
 export { default as cheerio } from "https://dev.jspm.io/cheerio";
@@ -99,9 +107,13 @@ export * as path from "https://deno.land/std/node/path.ts";
 export { default as filenamify } from "https://dev.jspm.io/filenamify";
 ```
 
-那么问题来了，这些模块如何找呢。[模块迁移指南](https://denotutorials.net/migrating-your-npm-packages-to-deno.html)中有大概的操作指南，这里简单描述下
+那么问题来了，这些模块如何找呢。[模块迁移指南](https://denotutorials.net/migrating-your-npm-packages-to-deno.html)中也有大概的介绍，这里简单描述下
 
-1、推荐到[`pika`](https://www.pika.dev/cdn)中去寻找这个模块，如果搜出来能直接用，不会报红，表明可以完美在 deno 中使用，直接用`pika`中的模块链接在`deps.ts`中引入即可。`pika`中都自带了`.d.ts`类型文件，配合`deno vscode`插件非常好用
+1、首先推荐到[`pika`](https://www.pika.dev/cdn)中去寻找这个模块，如果搜出来能直接用，不会报红，表明可以完美在 deno 中使用，直接用`pika`中的模块链接在`deps.ts`中引入即可。`pika`中都自带了`.d.ts`类型文件，配合`deno vscode`插件就能实现类型的推断
+
+例如这里的cheerio就直接在deno中使用
+
+![](https://user-gold-cdn.xitu.io/2020/6/6/172876f6522e36da?w=2808&h=554&f=png&s=460894)
 
 2、如果这个模块在`pika`中不支持（或者`pika`抽风..好像很多模块莫名奇妙 404 或者 502），则用`https://dev.jspm.io/模块名`的地址引入，这些引入一般是没有 ts 声明文件的，可能需要手动引入下对应库的声明文件或者直接添加`@ts-ignore`忽略掉对应的 ts。（`dev.jspm.io`中的模块可能用了某些 deno 不支持的 api？..需要判断了）
 
@@ -120,6 +132,9 @@ const $ = cheerio.load(html, {
 ### node 原生 api 的迁移
 
 对于`node`的原生模块，`deno`提供了对应的兼容包(它们存在于 deno 标准库的[`node`](https://github.com/denoland/deno/tree/master/std/node)包下)，例如`fs`、`path`等。但是兼容是不完全的，例如缺失某些 api（`fs`里面不提供流式操作）、一些`node`原生包也没支持。所以能做的就是尽量使用`Deno`api 实现，实在不行就用`node`包下的看看。我这个项目迁移基本满足了需求...
+
+
+![](https://user-gold-cdn.xitu.io/2020/6/6/1728770d791601f0?w=2100&h=1814&f=png&s=433121)
 
 [csdnsynchexo](https://github.com/flytam/CsdnSyncHexo)有不少调用`fs`的文件操作，主要是创建文件、写文件。
 
@@ -188,7 +203,7 @@ cache:
 
 直接根目录下新建`makefile`文件，这时候我们直接执行`make run`即可执行我们的程序了..可见，成功搞定
 
-![img](./img/img.png)
+![img](https://user-gold-cdn.xitu.io/2020/6/5/172847e299545ac6?w=3218&h=1854&f=png&s=550124)
 
 #### 打包
 
